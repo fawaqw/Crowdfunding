@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RewardCrowd UI</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+
+<body>
+  <div class="bg"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">R</div>
+      <div class="brandText">
+        <div class="title">RewardCrowd</div>
+        <div class="subtitle">Crowdfunding · Test ETH · Reward Tokens</div>
+      </div>
+    </div>
+
+    <div class="wallet">
+      <button id="uiConnect" class="btn primary">Connect Wallet</button>
+      <div class="pill" id="uiNetwork">Network: —</div>
+      <div class="pill mono" id="uiAddress">Wallet: —</div>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="card">
+      <div class="cardHead">
+        <h2>Create Campaign</h2>
+        <span class="badge">Write</span>
+      </div>
+
+      <div class="cardBody">
+        <div class="form">
+          <label>
+            Title
+            <input id="uiTitle" placeholder="e.g. Build a demo dApp" maxlength="64" />
+          </label>
+
+          <div class="row">
+            <label>
+              Goal (ETH)
+              <input id="uiGoalEth" type="number" step="0.0001" placeholder="0.5" />
+            </label>
+            <label>
+              Duration (minutes)
+              <input id="uiDurationMin" type="number" step="1" placeholder="60" />
+            </label>
+          </div>
+
+          <button id="uiCreate" class="btn primary wide">Create</button>
+
+          <div class="hint">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="cardHead">
+        <h2>Your Wallet</h2>
+        <span class="badge soft">Read</span>
+      </div>
+
+      <div class="cardBody">
+        <div class="statGrid">
+          <div class="stat">
+            <div class="statLabel">ETH Balance</div>
+            <div class="statValue" id="uiEthBalance">—</div>
+            <div class="statSub mono" id="uiEthWallet">Wallet: —</div>
+          </div>
+
+          <div class="stat">
+            <div class="statLabel">RewardToken (RWRD)</div>
+            <div class="statValue" id="uiRwrdBalance">—</div>
+            <div class="statSub mono" id="uiRwrdAddress">Token: —</div>
+          </div>
+        </div>
+
+        <div class="netAlert" id="uiNetAlert" style="display:none;">
+          Wrong network.
+        </div>
+
+        <div class="actions">
+          <button id="uiRefresh" class="btn ghost">Refresh</button>
+          <button id="uiAddToken" class="btn ghost">Add Token</button>
+        </div>
+
+        <div class="hint">
+        </div>
+      </div>
+    </section>
+
+    <section class="card span2">
+      <div class="cardHead">
+        <h2>Campaigns</h2>
+        <div class="headRight">
+          <div class="chip mono" id="uiCrowdfundingAddress">Crowdfunding: —</div>
+          <button id="uiReload" class="btn ghost">Reload</button>
+        </div>
+      </div>
+
+      <div class="status" id="uiStatus">
+      </div>
+
+      <div class="filters">
+        <div class="seg">
+          <button class="segBtn active" data-filter="all">All</button>
+          <button class="segBtn" data-filter="active">Active</button>
+          <button class="segBtn" data-filter="ended">Ended</button>
+          <button class="segBtn" data-filter="finalized">Finalized</button>
+        </div>
+
+        <div class="searchWrap">
+          <input id="uiSearch" placeholder="Search by title / creator…" />
+          <button id="uiClearSearch" class="btn tiny ghost">Clear</button>
+        </div>
+      </div>
+
+      <div class="loadById">
+        <div class="loadLeft">
+          <div class="loadTitle">Load campaign by ID</div>
+          <div class="loadSub">
+          </div>
+        </div>
+
+        <div class="loadRight">
+          <input id="uiLoadId" class="miniInput" placeholder="Campaign ID (number)" />
+          <button id="uiLoadBtn" class="btn primary">Load</button>
+        </div>
+      </div>
+
+      <div class="campaigns" id="uiCampaigns">
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footLeft">
+      <span class="dot"></span>
+      <span>Educational demo. No monetary value</span>
+    </div>
+    <div class="footRight mono">v1 UI</div>
+  </footer>
+</body>
+</html>
