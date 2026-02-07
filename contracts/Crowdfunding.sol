@@ -66,7 +66,7 @@ contract Crowdfunding {
 
     }
 
-    // finalize a campaign (after deadline or by creator)
+    // finalize a campaign
     function finalizeCampaign(uint _id) public {
     Campaign storage campaign = campaigns[_id];
 
@@ -83,7 +83,7 @@ contract Crowdfunding {
     }  
 
 
-    // view function: get all details of a campaign
+    // get all details of a campaign
     function getCampaign(uint _id) public view returns (
         string memory,
         uint,
@@ -104,9 +104,12 @@ contract Crowdfunding {
     }
 
 
-    // view function: get reward token balance of a user
+    // get reward token balance of a user
     function getRewardBalance(address user) public view returns (uint) {
     return rewardToken.balanceOf(user);
+}
+function getCampaignCount() public view returns (uint) {
+    return campaigns.length;
 }
 }
 
