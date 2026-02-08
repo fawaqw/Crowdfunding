@@ -25,6 +25,22 @@ body{
     linear-gradient(180deg, var(--bg0), var(--bg1));
   overflow-x:hidden;
 }
+body::before{
+  content:"";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(1200px 800px at 18% -10%, rgba(52,235,210,.18), transparent 55%),
+    radial-gradient(1000px 650px at 88% 12%, rgba(52,235,210,.10), transparent 55%),
+    radial-gradient(900px 650px at 50% 110%, rgba(52,235,210,.08), transparent 55%),
+    linear-gradient(180deg, var(--bg0), var(--bg1));
+  transform: translateZ(0);
+}
+
+body{
+  background: transparent;
+}
 
 .bg{
   position:fixed;
@@ -392,4 +408,10 @@ input:focus{
   .statGrid{grid-template-columns: 1fr;}
   .loadById{flex-direction: column; align-items: stretch;}
   .loadRight{flex-direction: column; align-items: stretch;}
+}
+.footer{
+  background: transparent;
+}
+.footer{
+  background: linear-gradient(180deg, rgba(5,10,16,0), rgba(7,19,34,0.6));
 }
