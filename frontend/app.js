@@ -2,7 +2,7 @@
 import { ethers } from "https://cdn.jsdelivr.net/npm/ethers@6.10.0/+esm";
 
 // CONFIG
-const CROWDFUNDING_ADDRESS = "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853";
+const CROWDFUNDING_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
 
 // ABI
 const crowdfundingAbi = [
@@ -47,7 +47,6 @@ const uiCreate = document.getElementById("uiCreate");
 const uiCampaigns = document.getElementById("uiCampaigns");
 const uiReload = document.getElementById("uiReload");
 const uiRefresh = document.getElementById("uiRefresh");
-const uiAddToken = document.getElementById("uiAddToken");
 
 const segBtns = document.querySelectorAll(".segBtn");
 const uiSearch = document.getElementById("uiSearch");
@@ -63,13 +62,20 @@ uiConnect.onclick = connectWallet;
 uiCreate.onclick = createCampaign;
 uiReload.onclick = loadCampaigns;
 uiRefresh.onclick = refreshBalances;
-uiAddToken.onclick = addTokenToMetaMask;
 uiClearSearch.onclick = () => { uiSearch.value = ""; loadCampaigns(); };
 uiLoadBtn.onclick = async () => {
-  const id = uiLoadId.value.trim();
-  if (id === "") return alert("Enter campaign ID");
-  await renderCampaignById(Number(id));
+  const raw = uiLoadId.value.trim();
+  if (raw === "") return alert("Enter campaign ID");
+  // only non-negative integers
+  if (!/^\d+$/.test(raw)) {
+    showStatus("Invalid campaign ID. Use a number like 0, 1, 2...", 5000);
+    return;
+  }
+
+  const id = Number(raw);
+  await renderCampaignById(id);
 };
+
 
 // seg buttons
 segBtns.forEach(b => {
@@ -104,6 +110,41 @@ function formatEth(big) {
 function formatToken(big, decimals = 18) {
   try { return ethers.formatUnits(big, decimals); }
   catch { return "0"; }
+}
+
+function parseTxError(err) {
+  const msg =
+    err?.shortMessage ||
+    err?.reason ||
+    err?.info?.error?.message ||
+    err?.data?.message ||
+    err?.message ||
+    "";
+
+  // normalize
+  const m = String(msg);
+  const low = m.toLowerCase();
+
+  // common reverts
+  if (low.includes("campaign has ended")) return "This campaign has ended. You can’t contribute anymore.";
+  if (low.includes("finaliz")) return "This campaign is already finalized.";
+  if (low.includes("no campaign")) return "Campaign not found.";
+
+  // user rejected MetaMask
+  if (low.includes("user rejected")) return "Transaction cancelled in MetaMask.";
+
+  return "Transaction failed: " + m;
+}
+
+function setLockedStyle(btn, locked) {
+  if (!btn) return;
+  if (locked) {
+    btn.style.opacity = "0.5";
+    btn.style.cursor = "not-allowed";
+  } else {
+    btn.style.opacity = "";
+    btn.style.cursor = "";
+  }
 }
 
 // MAIN ACTIONS
@@ -271,7 +312,7 @@ function renderCampaignCard(c) {
   const deadlineStr = c.deadlineUnix ? new Date(c.deadlineUnix * 1000).toLocaleString() : "-";
 
   el.innerHTML = `
-    <div class="campHead"><h3>${escapeHtml(c.title)}</h3></div>
+    <div class="campHead"><h3>#${c.id} · ${escapeHtml(c.title)}</h3></div>
     <div class="campMeta">Creator: <span class="mono">${c.creator}</span></div>
     <div class="campRow">
       <div>Goal: <strong>${c.goalEth}</strong> ETH</div>
@@ -294,24 +335,66 @@ function renderCampaignCard(c) {
     </div>
   `;
 
+  const btnContribute = el.querySelector(".btn-contribute");
+  const btnFinalize = el.querySelector(".btn-finalize");
+  const inputContribute = el.querySelector(".contributeInput");
+
   // attach handlers
-  el.querySelector(".btn-contribute").onclick = async () => {
-    const v = el.querySelector(".contributeInput").value.trim();
+  btnContribute.onclick = async () => {
+    const nowSec = Math.floor(Date.now() / 1000);
+
+    if (c.finalized) {
+      showStatus("This campaign is already finalized.", 6000);
+      return;
+    }
+
+    if (c.deadlineUnix && c.deadlineUnix <= nowSec) {
+      showStatus("This campaign has ended. You can’t contribute anymore.", 6000);
+      return;
+    }
+
+    const v = inputContribute.value.trim();
     if (!v || Number(v) <= 0) return alert("Enter amount > 0");
     await contributeToCampaign(c.id, v);
   };
 
-  el.querySelector(".btn-finalize").onclick = async () => {
+  btnFinalize.onclick = async () => {
+    const nowSec = Math.floor(Date.now() / 1000);
+
+    if (c.finalized) {
+      showStatus("This campaign is already finalized.", 6000);
+      return;
+    }
+
+    const isCreator = user && c.creator && (user.toLowerCase() === c.creator.toLowerCase());
+    const beforeDeadline = c.deadlineUnix && nowSec < c.deadlineUnix;
+
+    if (!isCreator && beforeDeadline) {
+      showStatus("Only the creator can finalize before the deadline.", 6000);
+      return;
+    }
+
     await finalizeCampaign(c.id);
   };
 
   // disable buttons appropriately
+  const nowSec = Math.floor(Date.now() / 1000);
+  const ended = c.deadlineUnix && c.deadlineUnix <= nowSec;
+
   if (c.finalized) {
-    el.querySelector(".btn-contribute").disabled = true;
-    el.querySelector(".btn-finalize").disabled = true;
+    setLockedStyle(btnContribute, true);
+    setLockedStyle(btnFinalize, true);
+    setLockedStyle(inputContribute, true);
+    inputContribute.disabled = true;
   } else {
+    if (ended) {
+      setLockedStyle(btnContribute, true);
+      setLockedStyle(inputContribute, true);
+      inputContribute.disabled = true;
+    }
+
     if (user.toLowerCase() !== c.creator.toLowerCase()) {
-      el.querySelector(".btn-finalize").disabled = true;
+      setLockedStyle(btnFinalize, true);
     }
   }
 
@@ -341,29 +424,35 @@ async function loadCampaigns() {
 
     uiCampaigns.innerHTML = "";
 
-    const search = uiSearch.value.trim().toLowerCase();
+const search = uiSearch.value.trim().toLowerCase();
+let shown = 0;
 
-    for (let i = 0; i < count; i++) {
-      const raw = await crowdfunding.getCampaign(i);
-      const parsed = await parseCampaignStruct(raw, i);
+for (let i = 0; i < count; i++) {
+  const raw = await crowdfunding.getCampaign(i);
+  const parsed = await parseCampaignStruct(raw, i);
+  // filter by segment
+  const nowSec = Math.floor(Date.now() / 1000);
+  let state = "active";
+  if (parsed.finalized) state = "finalized";
+  else if (parsed.deadlineUnix <= nowSec) state = "ended";
+  if (currentFilter !== "all" && currentFilter !== state) continue;
+  // search by title or creator
+  if (search) {
+    const hay = (parsed.title + " " + parsed.creator).toLowerCase();
+    if (!hay.includes(search)) continue;
+  }
 
-      // filter by segment
-      const nowSec = Math.floor(Date.now() / 1000);
-      let state = "active";
-      if (parsed.finalized) state = "finalized";
-      else if (parsed.deadlineUnix <= nowSec) state = "ended";
+  const card = renderCampaignCard(parsed);
+  uiCampaigns.appendChild(card);
+  shown++;
+}
 
-      if (currentFilter !== "all" && currentFilter !== state) continue;
+if (shown === 0) {
+  uiCampaigns.innerHTML = "<p>No results</p>";
+}
 
-      // search by title or creator
-      if (search) {
-        const hay = (parsed.title + " " + parsed.creator).toLowerCase();
-        if (!hay.includes(search)) continue;
-      }
+showStatus("Campaigns loaded", 1500);
 
-      const card = renderCampaignCard(parsed);
-      uiCampaigns.appendChild(card);
-    }
 
     showStatus("Campaigns loaded", 1500);
   } catch (err) {
@@ -380,55 +469,35 @@ async function contributeToCampaign(id, amountEth) {
     const value = ethers.parseEther(String(amountEth));
     showStatus("Sending contribution tx...");
     const tx = await crowdfunding.contribute(id, { value });
+    showStatus("Waiting for confirmation...");
     await tx.wait();
     showStatus("Contribution confirmed", 3000);
     await refreshBalances();
     await loadCampaigns();
   } catch (err) {
-    console.error("contribute err", err);
-    showStatus("Contribution failed: " + (err?.message || err), 5000);
+    console.error("contribute err:", err);
+    const nice = parseTxError(err);
+    showStatus(nice, 6000);
   }
 }
+
 
 async function finalizeCampaign(id) {
   try {
     if (!crowdfunding) return alert("Connect wallet first");
     showStatus("Sending finalize tx...");
     const tx = await crowdfunding.finalizeCampaign(id);
+    showStatus("Waiting for confirmation...");
     await tx.wait();
     showStatus("Campaign finalized", 3000);
     await loadCampaigns();
   } catch (err) {
     console.error("finalize err", err);
-    showStatus("Finalize failed: " + (err?.message || err), 5000);
+    const nice = parseTxError(err);
+    showStatus(nice, 6000);
   }
 }
 
-async function addTokenToMetaMask() {
-  try {
-    if (!rewardToken) return alert("Reward token not found");
-    const address = await crowdfunding.rewardToken();
-    const symbol = await rewardToken.symbol().catch(() => "RWRD");
-    const decimals = await rewardToken.decimals().catch(() => 18);
-
-    await window.ethereum.request({
-      method: "wallet_watchAsset",
-      params: {
-        type: "ERC20",
-        options: {
-          address,
-          symbol,
-          decimals
-        }
-      }
-    });
-
-    showStatus("Add token request sent to MetaMask", 3000);
-  } catch (err) {
-    console.error("add token error", err);
-    showStatus("Add token failed");
-  }
-}
 
 (function init() {
   // show contract address early
